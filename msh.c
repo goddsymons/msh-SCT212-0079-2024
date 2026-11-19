@@ -2,8 +2,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
-
-//
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -28,6 +26,49 @@ int parse_line(char*line, char **args)
     return count;
 }
     int last_status =0;
+
+/* Checks whether the entered command is built-in.
+it  Returns -1 to exit, 
+1 if handled, 
+or 0 if it is not built-in.
+ */
+int handle_builtin(char **args)
+{
+    if (strcmp(args[0], "exit") == 0) {
+        return -1;  // Signals  to exit
+    }
+
+    if (strcmp(args[0], "cd") == 0) {
+        const char *dir = args[1];
+
+        if (dir == NULL)
+            dir = getenv("HOME");   
+
+        if (dir == NULL) {
+            fprintf(stderr, "msh: cd: HOME not set\n");
+            last_status = 1;
+        } else if (chdir(dir) != 0) {
+            perror("msh: cd");
+            last_status = 1;
+        } else {
+            last_status = 0;
+        }
+
+        return 1;
+    }
+
+    if (strcmp(args[0], "help") == 0) {
+        printf("msh - a minimal shell\n");
+        printf("Built-in commands: cd [dir], help, exit\n");
+        printf("All other commands are run as external programs.\n");
+
+        last_status = 0;
+        return 1;
+    }
+
+    return 0;  // Not a built-in command
+}
+
 
     void run_command(char **args)
     {
@@ -80,13 +121,20 @@ int main(void)
 
         int argc = parse_line(line, args);  // Parses the input line into arguments
 
-        if (argc == 0) //ignores blank lines and dsiplays the prompt again
-            continue;
+        if (argc == 0) {
+            continue;  // If no command was entered, prompt again
+        }
+        int builtin = handle_builtin(args);  // Checks if the command is built-in
 
-        run_command(args);  // Executes the command with the parsed arguments
+        if (builtin == -1) {
+            break;  // Exit the shell 
+        }
+        if (builtin == 0) {
+            run_command(args);  // Executes external commands
+            
         }
     
-
+    }
     free(line);  // This releases dynamically allocated memory
     return 0;
 }
