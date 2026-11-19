@@ -70,7 +70,19 @@ int handle_builtin(char **args)
 }
 
 
-    void run_command(char **args)
+// Collects background processes that have finished.
+ 
+void reap_zombies(void)
+{
+    int status;
+    pid_t pid;
+
+    while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
+        printf("[done] PID %d\n", pid);
+    }
+}
+
+    void run_command(char **args, int bg)
     {
         pid_t pid = fork();  // Creates a new process
 
@@ -85,6 +97,12 @@ int handle_builtin(char **args)
             perror(args[0]);  // If execvp evp fails, this run
 
             exit(127);
+        }
+
+        if (bg){
+
+            printf("[bg] PID %d\n", pid);  // Displays the background process ID
+            return;
         }
 
             int status;
@@ -108,7 +126,9 @@ int main(void)
     char *args[MAX_ARGS];  // This will hold the parsed arguments
 
     for (;;) {
-        printf("msh> ");
+       reap_zombies();  //Checks for completed background processes before displaying a new prompt
+       printf("msh> ");  // This displays the shell prompt
+
         fflush(stdout);  // displays the prompt  immediately
 
         ssize_t nread = getline(&line, &len, stdin);
@@ -124,13 +144,27 @@ int main(void)
         if (argc == 0) {
             continue;  // If no command was entered, prompt again
         }
+
+        //check whether the command should run in the background
+        int bg = 0;
+
+        if (strcmp(args[argc - 1], "&") == 0) {
+            bg = 1;  
+            args[argc - 1] = NULL;  // Removes & from the arguments. to ensure execvp doesn't treat it as a command 
+            argc--;  // Decreases the argument count
+
+        }
+        if (argc == 0) {
+            continue;  // If no command was entered after removing &, prompt again
+        }
+
         int builtin = handle_builtin(args);  // Checks if the command is built-in
 
         if (builtin == -1) {
             break;  // Exit the shell 
         }
         if (builtin == 0) {
-            run_command(args);  // Executes external commands
+            run_command(args, bg);  // Executes external commands
             
         }
     
