@@ -2,8 +2,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
+
 #include <sys/wait.h>
 #include <unistd.h>
+
+#include <fcntl.h>
+
+#include <signal.h>
 
 #define MAX_ARGS 128 // this limits the number of arguments
 
@@ -84,6 +89,28 @@ void reap_zombies(void)
 
     void run_command(char **args, int bg)
     {
+        char *outfile = NULL;
+
+        //check for output redirection
+        for (int i = 0; args[i] != NULL; i++) {
+            if (strcmp(args[i], ">") == 0) {
+                if (args[i + 1] == NULL) {
+                    fprintf(stderr, "msh: expected filename after >\n");
+                    last_status = 1;
+                    return;
+                }
+                outfile = args[i + 1];
+                args[i] = NULL;  // Remove the > operator and filename from command arguments
+                break;
+
+            }
+        }
+
+    if (args[0] == NULL) {
+        fprintf(stderr, "msh: Command is missing\n");
+        last_status = 1;
+        return;
+    }
         pid_t pid = fork();  // Creates a new process
 
         if (pid < 0) {  // Checks for fork error
@@ -92,6 +119,25 @@ void reap_zombies(void)
         }
         // Child process
         if (pid == 0) {
+
+            signal(SIGINT, SIG_DFL);  // Resets the signal handler for SIGINT to default in the child process
+
+            //redirects stdout if an output file is specified
+            if (outfile != NULL) {
+                int fd = open(outfile, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+                if (fd < 0) {
+                    perror("msh: open");
+                    exit(1);
+                }
+                if (dup2(fd, STDOUT_FILENO)== -1) {  // Redirects stdout to the file
+                    perror("msh: dup2");
+                    close(fd);
+                    exit(1);
+                }
+
+                close(fd);  // Closes the file descriptor
+                
+            }
             execvp(args[0], args);  // Executes the command
 
             perror(args[0]);  // If execvp evp fails, this run
@@ -119,8 +165,15 @@ void reap_zombies(void)
         }
 }
 
+void sigint_handler(int sig)
+{
+   (void)sig;  
+   write(STDOUT_FILENO, "\n", 1);  // Writes a newline to stdout
+}
+
 int main(void)
 {
+    signal(SIGINT, sigint_handler);  // Telss the shell to use the custom signal handler for SIGINT.
     char *line = NULL;
     size_t len = 0;
     char *args[MAX_ARGS];  // This will hold the parsed arguments
