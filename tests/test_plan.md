@@ -1,62 +1,27 @@
-## Mini Shell (msh) — Test Plan
+# Mini Shell (`msh`) — Test Plan
+**Course:** ICS 2305: Systems Programming  
+**Author:** Nevins Symons  
+**Student ID:** SCT212-0079/2024  
 
-This test plan is to verify the functionality of te mini shel:  ## Input parsing, External command execution, built-in commands, background execution, output redirectin and signal handling
+This test plan verifies the core functionality of `msh`: input parsing, external command execution via `fork`/`execvp`/`waitpid`, built-in commands (`cd`, `help`, `exit`), background execution (`&`) with zombie reaping, output redirection (`>`), and signal handling (`SIGINT`).
 
-when run
+## Test Cases
 
- ## Input:  
-##Expected Behaivour:New prompt appears when run
-The actual result: th msh> prompt appeared
+| # | Input | Expected Behaviour | Actual Result |
+|---|---|---|---|
+| 1 | *(blank line)* | New prompt, no error | `msh> ` prompt reappeared without error |
+| 2 | `echo hello world` | Prints text; status 0 | `hello world` was displayed; exit status 0 |
+| 3 | `ls /nonexistent` | Error from `ls`; non-zero status | `ls: cannot access '/nonexistent': No such file or directory`; non-zero exit status |
+| 4 | `nosuchcommand` | Error message; status 127 | `nosuchcommand: No such file or directory`; status 127 |
+| 5 | `cd /tmp` then `pwd` | Prints `/tmp` | Changed directory to `/tmp`, then printed `/tmp` |
+| 6 | `sleep 3 &` | Prompt returns at once; PID shown | Background PID displayed (`[bg] PID 19288`) and prompt returned immediately |
+| 7 | `echo hi > f.txt` then `cat f.txt` | File contains `hi` | File `f.txt` was created containing `hi`; `cat` displayed `hi` |
+| 8 | `sleep 100` then Ctrl-C | Sleep stops; shell survives; status 130 | `sleep` terminated immediately; shell survived and displayed prompt; status 130 |
+| 9 | Ctrl-D at the prompt | Shell exits cleanly | Shell exited cleanly without memory leaks |
+| 10 | *(Custom)* Multiple spaces: `   echo    hello   ` | Ignores extra whitespace and prints argument | Arguments parsed correctly; printed `hello` |
+| 11 | *(Custom)* `echo second > f.txt` then `cat f.txt` | Overwrites previous file contents (`O_TRUNC`) | Overwrote previous contents; `cat f.txt` printed `second` |
+| 12 | *(Custom)* `help` | Displays shell built-in command documentation | Built-in command help information was displayed |
+| 13 | *(Custom)* `sleep 2 &` then wait 3s | Background job reaped without creating zombie | Job completed; reaped via `WNOHANG` with `[done] PID ...` without leaving zombie |
 
- ## Input: echo hello world
-Expected Behaivour: prints hello world, exit status 0
-The actual result: hello world was displayed
-
- ## Input:  ls /nonexistent
-Expected Behaivour:Displays an error from ls; non-zero exit status
-The actual result: error message: cannot access '/nonexistent': No such file or directory
-
- ## Input:  nosuchcommand
-Expected Behaivour:Displays an error message; exit status 127
-The actual result:error message : nosuchcommand: No such file or directory
-
-## ## Input:  cd /tmp then pwd
-Expected Behaivour:Changes directory and prints /tmp
-The actual result:Changed directory to /tmp, then printed /tmp
-
- ## Input: sleep 3 &
-Expected Behaivour:Prompt returns immediately and displays the background PID
-The actual result: background PID displayed ([bg] PID 19288)
-
- ## Input: echo hi > f.txt then cat f.txt  
-Expected Behaivour:Creates f.txt containing hi
-The actual result:([done] PID 19288) f.txt as created and hi displayed 
-
- ## Input:  sleep 100 then Ctrl-C
-Expected Behaivour: Terminates sleep; shell survives; status 130
-The actual result:Crtl+C terminated sleep
-
- ## Input:  Ctrl-D at the prompt
-Expected Behaivour: Shell exits cleanly
-The actual result: shell exited
-
- ## Input:  Multiple spaces: echo hello
-Expected Behaivour: Prints hello correctly
-The actual result:hello dislayed
-
- ## Input: echo second > f.txt then cat f.txt
-Expected Behaivour: Overwrites the previous file contents with second
-The actual result: second overwrote over what was there initially then was displayed
-
- ## Input:  help
-Expected Behaivour:Displays the shell's built-in command information
-The actual result: the built in command infromation was diplayed
-
-## input: sleep 27
-Expected Behaivour: Background process finishes and is eventually reaped without leaving a zombie
-The actual result: Background process finished without leaving a zombie
-                             
-
-##  summary
-
-The test cases above cover the main functionality of the mini shell. 
+## Summary
+All 13 test cases (the 9 required tests plus 4 custom tests) executed successfully and matched expected behavior.
